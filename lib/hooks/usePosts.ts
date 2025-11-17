@@ -64,3 +64,43 @@ export function useToggleLike() {
     },
   })
 }
+
+export function usePost(postId: string | null) {
+  return useQuery({
+    queryKey: ['post', postId],
+    queryFn: async () => {
+      if (!postId) throw new Error('Post ID is required')
+
+      const response = await fetch(`/api/posts/${postId}`)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error?.message || 'Failed to fetch post')
+      }
+      const { data } = await response.json()
+      return data as PostWithProfile
+    },
+    enabled: !!postId,
+  })
+}
+
+export function useReplies(postId: string | null, options?: { limit?: number; offset?: number }) {
+  return useQuery({
+    queryKey: ['replies', postId, options?.limit, options?.offset],
+    queryFn: async () => {
+      if (!postId) throw new Error('Post ID is required')
+
+      const params = new URLSearchParams()
+      if (options?.limit) params.set('limit', options.limit.toString())
+      if (options?.offset) params.set('offset', options.offset.toString())
+
+      const response = await fetch(`/api/posts/${postId}/replies?${params}`)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error?.message || 'Failed to fetch replies')
+      }
+      const { data } = await response.json()
+      return data as PostWithProfile[]
+    },
+    enabled: !!postId,
+  })
+}

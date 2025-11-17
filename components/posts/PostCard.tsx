@@ -37,9 +37,11 @@ export function PostCard({ post }: PostCardProps) {
       <div className="flex gap-3">
         {/* Avatar placeholder */}
         <div className="flex-shrink-0">
-          <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-            {post.profiles.display_name?.[0]?.toUpperCase() || post.profiles.username[0].toUpperCase()}
-          </div>
+          <Link href={`/${post.profiles.username}`}>
+            <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold cursor-pointer hover:opacity-80 transition-opacity">
+              {post.profiles.display_name?.[0]?.toUpperCase() || post.profiles.username[0].toUpperCase()}
+            </div>
+          </Link>
         </div>
 
         {/* Post content */}
@@ -58,18 +60,22 @@ export function PostCard({ post }: PostCardProps) {
               @{post.profiles.username}
             </Link>
             <span className="text-gray-500">·</span>
-            <span className="text-gray-500 text-sm">{timeAgo}</span>
+            <Link href={`/posts/${post.id}`} className="text-gray-500 text-sm hover:underline">
+              {timeAgo}
+            </Link>
           </div>
 
-          <p className="mt-1 text-gray-900 whitespace-pre-wrap break-words">
-            {post.content}
-          </p>
+          <Link href={`/posts/${post.id}`} className="block">
+            <p className="mt-1 text-gray-900 whitespace-pre-wrap break-words">
+              {post.content}
+            </p>
+          </Link>
 
           {/* Engagement stats */}
           <div className="flex gap-6 mt-3 text-gray-500 text-sm">
-            <button className="hover:text-blue-600 transition-colors">
+            <Link href={`/posts/${post.id}`} className="hover:text-blue-600 transition-colors">
               <span className="font-medium">{post.replies_count}</span> replies
-            </button>
+            </Link>
             <button className="hover:text-green-600 transition-colors">
               <span className="font-medium">{post.retweets_count}</span> retweets
             </button>

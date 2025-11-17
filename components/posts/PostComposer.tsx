@@ -5,7 +5,13 @@ import { useCreatePost } from '@/lib/hooks/usePosts'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
-export function PostComposer() {
+interface PostComposerProps {
+  replyToId?: string
+  replyToUsername?: string
+  onSuccess?: () => void
+}
+
+export function PostComposer({ replyToId, replyToUsername, onSuccess }: PostComposerProps) {
   const [content, setContent] = useState('')
   const createPost = useCreatePost()
 
@@ -14,8 +20,9 @@ export function PostComposer() {
     if (!content.trim()) return
 
     try {
-      await createPost.mutateAsync({ content })
+      await createPost.mutateAsync({ content, replyToId })
       setContent('')
+      onSuccess?.()
     } catch (error) {
       // Error is already displayed via createPost.isError
       // No need to log - React Query handles error state
@@ -30,10 +37,15 @@ export function PostComposer() {
   return (
     <Card className="p-4">
       <form onSubmit={handleSubmit} className="space-y-3">
+        {replyToUsername && (
+          <div className="text-sm text-gray-600 pb-2 border-b">
+            Replying to <span className="text-blue-600">@{replyToUsername}</span>
+          </div>
+        )}
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="What's happening?"
+          placeholder={replyToId ? "Post your reply..." : "What's happening?"}
           className="w-full min-h-[100px] text-lg resize-none border-none focus:outline-none focus:ring-0"
           disabled={createPost.isPending}
         />
@@ -53,7 +65,7 @@ export function PostComposer() {
             type="submit"
             disabled={!content.trim() || isOverLimit || createPost.isPending}
           >
-            {createPost.isPending ? 'Posting...' : 'Post'}
+            {createPost.isPending ? (replyToId ? 'Replying...' : 'Posting...') : (replyToId ? 'Reply' : 'Post')}
           </Button>
         </div>
         {createPost.isError && (
