@@ -60,8 +60,8 @@ export default function SignupPage() {
         router.push('/home')
         router.refresh()
       }
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during signup')
     } finally {
       setLoading(false)
     }

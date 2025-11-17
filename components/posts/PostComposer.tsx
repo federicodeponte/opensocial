@@ -17,7 +17,8 @@ export function PostComposer() {
       await createPost.mutateAsync({ content })
       setContent('')
     } catch (error) {
-      console.error('Failed to create post:', error)
+      // Error is already displayed via createPost.isError
+      // No need to log - React Query handles error state
     }
   }
 

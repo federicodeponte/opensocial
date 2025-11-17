@@ -1,100 +1,68 @@
 // ABOUTME: API routes for creating and fetching posts
-// ABOUTME: Supports both global feed and user-specific posts
+// ABOUTME: Uses service layer for business logic, handles authentication and validation
 
 import { createClient } from '@/lib/auth/supabase-server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { postService } from '@/lib/services/post-service'
+import { handleApiError } from '@/lib/errors/error-handler'
+import { AuthenticationError } from '@/lib/errors/app-error'
 
 const createPostSchema = z.object({
-  content: z.string().min(1).max(280),
-  replyToId: z.string().uuid().optional(),
+  content: z.string().min(1, 'Content is required').max(280, 'Content must be 280 characters or less'),
+  replyToId: z.string().uuid('Invalid post ID').optional(),
+})
+
+const getPostsSchema = z.object({
+  userId: z.string().uuid('Invalid user ID').optional(),
+  limit: z.coerce.number().min(1).max(100).default(20),
+  offset: z.coerce.number().min(0).default(0),
 })
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
-    const body = await request.json()
-    const { content, replyToId } = createPostSchema.parse(body)
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    const { data, error } = await supabase
-      .from('posts')
-      .insert([{
-        user_id: user.id,
-        content,
-        reply_to_id: replyToId || null,
-      }])
-      .select(
-        `
-        *,
-        profiles:user_id (
-          id,
-          username,
-          display_name,
-          avatar_url
-        )
-      `
-      )
-      .single()
-
-    if (error) throw error
-
-    return NextResponse.json({ data })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 })
+    if (!user) {
+      throw new AuthenticationError()
     }
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create post' },
-      { status: 400 }
-    )
+
+    const body = await request.json()
+    const validatedInput = createPostSchema.parse(body)
+
+    const post = await postService.createPost(supabase, user.id, {
+      content: validatedInput.content,
+      replyToId: validatedInput.replyToId,
+    })
+
+    return NextResponse.json({ data: post }, { status: 201 })
+  } catch (error) {
+    return handleApiError(error)
   }
 }
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const { searchParams } = new URL(request.url)
-  const userId = searchParams.get('userId')
-  const limit = parseInt(searchParams.get('limit') || '20')
-
   try {
-    let query = supabase
-      .from('posts')
-      .select(
-        `
-        *,
-        profiles:user_id (
-          id,
-          username,
-          display_name,
-          avatar_url
-        )
-      `
-      )
-      .is('reply_to_id', null)
-      .order('created_at', { ascending: false })
-      .limit(limit)
+    const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
 
-    if (userId) {
-      query = query.eq('user_id', userId)
-    }
+    const validatedParams = getPostsSchema.parse({
+      userId: searchParams.get('userId') || undefined,
+      limit: searchParams.get('limit') || undefined,
+      offset: searchParams.get('offset') || undefined,
+    })
 
-    const { data, error } = await query
+    const posts = await postService.getFeedPosts(supabase, {
+      userId: validatedParams.userId,
+      limit: validatedParams.limit,
+      offset: validatedParams.offset,
+    })
 
-    if (error) throw error
-
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: posts })
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch posts' },
-      { status: 400 }
-    )
+    return handleApiError(error)
   }
 }
