@@ -1,5 +1,8 @@
 // ABOUTME: Structured logging utility for consistent logging across the application
 // ABOUTME: Provides different log levels and structured context for better debugging
+//
+// NOTE: Currently wraps console.* with JSON formatting. In production, this should be
+// extended to send logs to external services (Sentry, DataDog, LogRocket, etc.)
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -14,6 +17,22 @@ interface Logger {
   error: (message: string, context?: LogContext) => void
 }
 
+/**
+ * Structured logger that formats logs as JSON
+ *
+ * Benefits over console.log/error:
+ * 1. Consistent format across entire application
+ * 2. Structured context data (easier to parse/search)
+ * 3. Log levels for filtering
+ * 4. Timestamps on every log
+ * 5. Single point to add external logging services
+ *
+ * Future improvements:
+ * - Send to Sentry/DataDog in production
+ * - Add request IDs for tracing
+ * - Add user context when available
+ * - Implement log sampling for high-volume scenarios
+ */
 class AppLogger implements Logger {
   private isDevelopment: boolean
 
@@ -30,28 +49,36 @@ class AppLogger implements Logger {
       ...(context && { context }),
     }
 
-    // In production, we'd send this to a logging service (e.g., Sentry, LogRocket)
-    // For now, we'll use structured console logs
+    // Format as JSON for structured parsing
+    // In development: pretty-print for readability
+    // In production: single-line for log aggregation tools
+    const formatted = this.isDevelopment
+      ? JSON.stringify(logEntry, null, 2)
+      : JSON.stringify(logEntry)
+
+    // Console output (will be captured by log aggregators in production)
     switch (level) {
       case 'debug':
         if (this.isDevelopment) {
-          console.debug(JSON.stringify(logEntry, null, 2))
+          console.debug(formatted)
         }
         break
       case 'info':
-        console.info(JSON.stringify(logEntry, null, 2))
+        console.info(formatted)
         break
       case 'warn':
-        console.warn(JSON.stringify(logEntry, null, 2))
+        console.warn(formatted)
         break
       case 'error':
-        console.error(JSON.stringify(logEntry, null, 2))
+        console.error(formatted)
         break
     }
 
-    // TODO: In production, send to external logging service
+    // TODO: Send to external logging service in production
+    // Example integration:
     // if (!this.isDevelopment) {
-    //   sendToExternalLogger(logEntry)
+    //   Sentry.captureMessage(message, { level, extra: context })
+    //   // or DataDog: datadogLogs.logger.log(message, context, level)
     // }
   }
 

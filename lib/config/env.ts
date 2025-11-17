@@ -3,39 +3,110 @@
 
 import { z } from 'zod'
 
-const envSchema = z.object({
-  // Supabase
+/**
+ * Client-side environment variables (NEXT_PUBLIC_*)
+ * These are available in both server and client contexts
+ */
+const clientEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url('Invalid Supabase URL'),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'Supabase anon key is required'),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'Supabase service role key is required'),
+})
 
-  // App
+/**
+ * Server-side environment variables
+ * These are ONLY available in server contexts (API routes, server components)
+ */
+const serverEnvSchema = z.object({
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'Supabase service role key is required'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 })
 
-export type Env = z.infer<typeof envSchema>
+export type ClientEnv = z.infer<typeof clientEnvSchema>
+export type ServerEnv = z.infer<typeof serverEnvSchema>
 
 /**
- * Validates and parses environment variables
- * Throws error if validation fails
+ * Validates client-side environment variables
+ * Safe to call in both server and client contexts
  */
-function validateEnv(): Env {
-  const parsed = envSchema.safeParse(process.env)
+function validateClientEnv(): ClientEnv {
+  const parsed = clientEnvSchema.safeParse(process.env)
 
   if (!parsed.success) {
-    console.error('❌ Invalid environment variables:', parsed.error.flatten().fieldErrors)
-    throw new Error('Invalid environment variables')
+    const errors = parsed.error.flatten().fieldErrors
+    // Using console.error here is intentional - this runs before logger is initialized
+    // and we need immediate feedback for misconfigured environments
+    console.error('❌ Invalid client environment variables:', errors)
+    throw new Error(
+      `Invalid client environment variables: ${Object.keys(errors).join(', ')}`
+    )
   }
 
   return parsed.data
 }
 
-// Validate on module load
-export const env = validateEnv()
+/**
+ * Validates server-side environment variables
+ * Should ONLY be called in server contexts (will fail on client)
+ */
+function validateServerEnv(): ServerEnv {
+  const parsed = serverEnvSchema.safeParse(process.env)
+
+  if (!parsed.success) {
+    const errors = parsed.error.flatten().fieldErrors
+    console.error('❌ Invalid server environment variables:', errors)
+    throw new Error(
+      `Invalid server environment variables: ${Object.keys(errors).join(', ')}`
+    )
+  }
+
+  return parsed.data
+}
+
+// Lazy evaluation - only validate when accessed
+let clientEnvCache: ClientEnv | null = null
+let serverEnvCache: ServerEnv | null = null
 
 /**
- * Type-safe getter for environment variables
+ * Get validated client environment variables
+ * Safe to use in both server and client code
  */
-export function getEnv<K extends keyof Env>(key: K): Env[K] {
-  return env[key]
+export function getClientEnv(): ClientEnv {
+  if (!clientEnvCache) {
+    clientEnvCache = validateClientEnv()
+  }
+  return clientEnvCache
+}
+
+/**
+ * Get validated server environment variables
+ * ONLY use in server code (API routes, server components, middleware)
+ */
+export function getServerEnv(): ServerEnv {
+  if (typeof window !== 'undefined') {
+    throw new Error('getServerEnv() called in client context - this is a bug')
+  }
+
+  if (!serverEnvCache) {
+    serverEnvCache = validateServerEnv()
+  }
+  return serverEnvCache
+}
+
+/**
+ * Legacy export for backward compatibility
+ * @deprecated Use getClientEnv() or getServerEnv() instead
+ */
+export const env = {
+  get NEXT_PUBLIC_SUPABASE_URL() {
+    return getClientEnv().NEXT_PUBLIC_SUPABASE_URL
+  },
+  get NEXT_PUBLIC_SUPABASE_ANON_KEY() {
+    return getClientEnv().NEXT_PUBLIC_SUPABASE_ANON_KEY
+  },
+  get SUPABASE_SERVICE_ROLE_KEY() {
+    return getServerEnv().SUPABASE_SERVICE_ROLE_KEY
+  },
+  get NODE_ENV() {
+    return getServerEnv().NODE_ENV
+  },
 }
