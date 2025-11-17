@@ -5,12 +5,15 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Database } from '@/lib/types/database'
+import { toast } from 'sonner'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
 
 export interface ProfileWithFollowStatus extends ProfileRow {
   isFollowing?: boolean
   isOwnProfile?: boolean
+  isMuted?: boolean
+  isBlocked?: boolean
 }
 
 export interface UpdateProfileInput {
@@ -117,8 +120,38 @@ export function useFollowUser() {
       const { data } = await response.json()
       return data
     },
-    onSuccess: (_, username) => {
-      // Invalidate profile to update follow status and counts
+    onMutate: async (username: string) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['profile', username] })
+
+      // Snapshot previous value
+      const previousProfile = queryClient.getQueryData<ProfileWithFollowStatus>(['profile', username])
+
+      // Optimistically update profile
+      queryClient.setQueryData<ProfileWithFollowStatus>(['profile', username], (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          isFollowing: true,
+          followers_count: old.followers_count + 1,
+        }
+      })
+
+      return { previousProfile, username }
+    },
+    onError: (err, _username, context) => {
+      // Show error notification
+      toast.error('Failed to follow user', {
+        description: err instanceof Error ? err.message : 'Please try again',
+      })
+
+      // Rollback on error
+      if (context?.previousProfile) {
+        queryClient.setQueryData(['profile', context.username], context.previousProfile)
+      }
+    },
+    onSettled: (_, __, username) => {
+      // Refetch to ensure data is correct
       queryClient.invalidateQueries({ queryKey: ['profile', username] })
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['followers', username] })
@@ -147,8 +180,38 @@ export function useUnfollowUser() {
       const { data } = await response.json()
       return data
     },
-    onSuccess: (_, username) => {
-      // Invalidate profile to update follow status and counts
+    onMutate: async (username: string) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['profile', username] })
+
+      // Snapshot previous value
+      const previousProfile = queryClient.getQueryData<ProfileWithFollowStatus>(['profile', username])
+
+      // Optimistically update profile
+      queryClient.setQueryData<ProfileWithFollowStatus>(['profile', username], (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          isFollowing: false,
+          followers_count: Math.max(0, old.followers_count - 1),
+        }
+      })
+
+      return { previousProfile, username }
+    },
+    onError: (err, _username, context) => {
+      // Show error notification
+      toast.error('Failed to unfollow user', {
+        description: err instanceof Error ? err.message : 'Please try again',
+      })
+
+      // Rollback on error
+      if (context?.previousProfile) {
+        queryClient.setQueryData(['profile', context.username], context.previousProfile)
+      }
+    },
+    onSettled: (_, __, username) => {
+      // Refetch to ensure data is correct
       queryClient.invalidateQueries({ queryKey: ['profile', username] })
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['followers', username] })

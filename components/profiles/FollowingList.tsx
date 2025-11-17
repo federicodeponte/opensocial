@@ -1,0 +1,95 @@
+// ABOUTME: Following list component showing users that a profile follows
+// ABOUTME: Displays profile cards with follow/unfollow buttons
+
+'use client'
+
+import { useFollowing } from '@/lib/hooks/useProfile'
+
+interface FollowingListProps {
+  username: string
+}
+
+export function FollowingList({ username }: FollowingListProps) {
+  const { data: following, isLoading, error } = useFollowing(username)
+
+  if (isLoading) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-lg p-4 animate-pulse">
+              <div className="flex gap-3">
+                <div className="w-12 h-12 rounded-full bg-gray-300" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-32 bg-gray-300 rounded" />
+                  <div className="h-4 w-24 bg-gray-300 rounded" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="text-center text-red-600">
+          Failed to load following
+        </div>
+      </div>
+    )
+  }
+
+  if (!following || following.length === 0) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="text-center text-gray-500">
+          Not following anyone yet
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      <h2 className="text-2xl font-bold mb-6">Following</h2>
+      <div className="space-y-4">
+        {following.map((follow) => (
+          <div
+            key={follow.following_id}
+            className="bg-white rounded-lg p-4 hover:bg-gray-50 transition-colors"
+          >
+            {follow.following_profile && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {follow.following_profile.avatar_url ? (
+                    <img
+                      src={follow.following_profile.avatar_url}
+                      alt={follow.following_profile.display_name || follow.following_profile.username}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
+                      {(follow.following_profile.display_name?.[0] || follow.following_profile.username[0]).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <a
+                      href={`/${follow.following_profile.username}`}
+                      className="font-semibold hover:underline"
+                    >
+                      {follow.following_profile.display_name || follow.following_profile.username}
+                    </a>
+                    <p className="text-sm text-gray-500">@{follow.following_profile.username}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

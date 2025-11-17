@@ -49,6 +49,11 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
 
+    // Get current user for filtering muted/blocked users
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
     const validatedParams = getPostsSchema.parse({
       userId: searchParams.get('userId') || undefined,
       limit: searchParams.get('limit') || undefined,
@@ -59,6 +64,7 @@ export async function GET(request: Request) {
       userId: validatedParams.userId,
       limit: validatedParams.limit,
       offset: validatedParams.offset,
+      currentUserId: user?.id,
     })
 
     return NextResponse.json({ data: posts })

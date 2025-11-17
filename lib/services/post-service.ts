@@ -30,12 +30,14 @@ export class PostService {
       userId,
       contentLength: trimmedContent.length,
       isReply: !!input.replyToId,
+      hasImages: !!(input.imageUrls && input.imageUrls.length > 0),
     })
 
     const post = await postRepository.createPost(client, {
       userId,
       content: trimmedContent,
       replyToId: input.replyToId,
+      imageUrls: input.imageUrls,
     })
 
     logger.info('Post created successfully', {
@@ -55,6 +57,7 @@ export class PostService {
       userId?: string
       limit?: number
       offset?: number
+      currentUserId?: string
     }
   ): Promise<PostWithProfile[]> {
     const limit = Math.min(options?.limit ?? 20, 100) // Max 100 posts per request
@@ -64,12 +67,14 @@ export class PostService {
       userId: options?.userId,
       limit,
       offset,
+      currentUserId: options?.currentUserId,
     })
 
     const posts = await postRepository.getFeedPosts(client, {
       userId: options?.userId,
       limit,
       offset,
+      currentUserId: options?.currentUserId,
     })
 
     logger.debug('Feed posts fetched', {

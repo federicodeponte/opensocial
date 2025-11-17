@@ -23,12 +23,14 @@ export class PostRepository {
       userId: string
       content: string
       replyToId?: string | null
+      imageUrls?: string[]
     }
   ): Promise<PostWithProfile> {
     const postData: PostInsert = {
       user_id: data.userId,
       content: data.content,
       reply_to_id: data.replyToId || null,
+      image_urls: data.imageUrls || [],
     }
 
     const { data: result, error } = await client
@@ -60,6 +62,7 @@ export class PostRepository {
 
   /**
    * Get posts for feed (no replies, ordered by created_at)
+   * Filters out posts from muted and blocked users
    */
   async getFeedPosts(
     client: DbClient,
@@ -67,6 +70,7 @@ export class PostRepository {
       userId?: string
       limit?: number
       offset?: number
+      currentUserId?: string
     }
   ): Promise<PostWithProfile[]> {
     let query = client
@@ -106,7 +110,42 @@ export class PostRepository {
       handleSupabaseError(error)
     }
 
-    return (data ?? []) as PostWithProfile[]
+    let posts = (data ?? []) as PostWithProfile[]
+
+    // Filter out muted and blocked users if currentUserId is provided
+    if (options?.currentUserId && posts.length > 0) {
+      // Get list of muted user IDs
+      const { data: mutedUsers } = await client
+        .from('muted_users')
+        .select('muted_user_id')
+        .eq('user_id', options.currentUserId)
+
+      const mutedUserIds = new Set(mutedUsers?.map(m => m.muted_user_id) || [])
+
+      // Get list of blocked user IDs (both directions)
+      const { data: blockedUsers } = await client
+        .from('blocked_users')
+        .select('blocked_user_id')
+        .eq('user_id', options.currentUserId)
+
+      const { data: blockingUsers } = await client
+        .from('blocked_users')
+        .select('user_id')
+        .eq('blocked_user_id', options.currentUserId)
+
+      const blockedUserIds = new Set([
+        ...(blockedUsers?.map(b => b.blocked_user_id) || []),
+        ...(blockingUsers?.map(b => b.user_id) || [])
+      ])
+
+      // Filter posts
+      posts = posts.filter(post => {
+        const authorId = post.user_id
+        return !mutedUserIds.has(authorId) && !blockedUserIds.has(authorId)
+      })
+    }
+
+    return posts
   }
 
   /**

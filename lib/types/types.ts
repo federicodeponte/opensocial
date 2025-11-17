@@ -9,11 +9,13 @@ export type Follow = Database['public']['Tables']['follows']['Row']
 export type PostWithProfile = Post & {
   profiles: Profile
   hasLiked?: boolean
+  hasRetweeted?: boolean
 }
 
 export type CreatePostInput = {
   content: string
   replyToId?: string
+  imageUrls?: string[]
 }
 
 export type UpdateProfileInput = {

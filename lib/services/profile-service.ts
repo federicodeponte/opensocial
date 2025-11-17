@@ -21,6 +21,8 @@ export interface UpdateProfileInput {
 export interface ProfileWithFollowStatus extends ProfileRow {
   isFollowing?: boolean
   isOwnProfile?: boolean
+  isMuted?: boolean
+  isBlocked?: boolean
 }
 
 export class ProfileService {
@@ -43,14 +45,37 @@ export class ProfileService {
 
     // Add follow status if current user is provided
     let isFollowing = false
+    let isMuted = false
+    let isBlocked = false
+
     if (currentUserId && currentUserId !== profile.id) {
       isFollowing = await followRepository.isFollowing(client, currentUserId, profile.id)
+
+      // Check if current user has muted this profile
+      const { data: muteData } = await client
+        .from('muted_users')
+        .select('id')
+        .eq('user_id', currentUserId)
+        .eq('muted_user_id', profile.id)
+        .maybeSingle()
+      isMuted = !!muteData
+
+      // Check if current user has blocked this profile
+      const { data: blockData } = await client
+        .from('blocked_users')
+        .select('id')
+        .eq('user_id', currentUserId)
+        .eq('blocked_user_id', profile.id)
+        .maybeSingle()
+      isBlocked = !!blockData
     }
 
     return {
       ...profile,
       isFollowing,
       isOwnProfile: currentUserId === profile.id,
+      isMuted,
+      isBlocked,
     }
   }
 
@@ -73,14 +98,37 @@ export class ProfileService {
 
     // Add follow status if current user is provided
     let isFollowing = false
+    let isMuted = false
+    let isBlocked = false
+
     if (currentUserId && currentUserId !== profile.id) {
       isFollowing = await followRepository.isFollowing(client, currentUserId, profile.id)
+
+      // Check if current user has muted this profile
+      const { data: muteData } = await client
+        .from('muted_users')
+        .select('id')
+        .eq('user_id', currentUserId)
+        .eq('muted_user_id', profile.id)
+        .maybeSingle()
+      isMuted = !!muteData
+
+      // Check if current user has blocked this profile
+      const { data: blockData } = await client
+        .from('blocked_users')
+        .select('id')
+        .eq('user_id', currentUserId)
+        .eq('blocked_user_id', profile.id)
+        .maybeSingle()
+      isBlocked = !!blockData
     }
 
     return {
       ...profile,
       isFollowing,
       isOwnProfile: currentUserId === profile.id,
+      isMuted,
+      isBlocked,
     }
   }
 
@@ -117,7 +165,7 @@ export class ProfileService {
   }
 
   /**
-   * Search profiles
+   * Search profiles using full-text search
    */
   async searchProfiles(
     client: DbClient,
@@ -148,6 +196,29 @@ export class ProfileService {
     })
 
     logger.debug('Profile search results', { count: profiles.length })
+
+    return profiles
+  }
+
+  /**
+   * Get suggested users to follow (popular users not followed by current user)
+   */
+  async getSuggestedProfiles(
+    client: DbClient,
+    currentUserId: string,
+    options?: {
+      limit?: number
+    }
+  ): Promise<ProfileRow[]> {
+    const limit = Math.min(options?.limit ?? 10, 20) // Max 20 suggestions
+
+    logger.debug('Fetching suggested profiles', { currentUserId, limit })
+
+    const profiles = await profileRepository.getSuggestedProfiles(client, currentUserId, {
+      limit,
+    })
+
+    logger.debug('Suggested profiles fetched', { count: profiles.length })
 
     return profiles
   }

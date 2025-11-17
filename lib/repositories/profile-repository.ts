@@ -102,7 +102,8 @@ export class ProfileRepository {
   }
 
   /**
-   * Search profiles by username (partial match)
+   * Search profiles using full-text search with relevance ranking
+   * Falls back to ILIKE for exact prefix matches
    */
   async searchProfiles(
     client: DbClient,
@@ -112,27 +113,86 @@ export class ProfileRepository {
       offset?: number
     }
   ): Promise<ProfileRow[]> {
-    let dbQuery = client
-      .from(this.tableName)
-      .select('*')
-      .ilike('username', `%${query}%`)
-      .order('followers_count', { ascending: false })
+    // Sanitize query for tsquery (remove special chars, handle spaces)
+    const sanitizedQuery = query
+      .trim()
+      .replace(/[^\w\s]/g, '')
+      .split(/\s+/)
+      .filter(word => word.length > 0)
+      .join(' & ')
 
-    if (options?.limit) {
-      dbQuery = dbQuery.limit(options.limit)
+    if (!sanitizedQuery) {
+      return []
     }
 
-    if (options?.offset) {
-      dbQuery = dbQuery.range(
-        options.offset,
-        options.offset + (options.limit ?? 20) - 1
-      )
-    }
-
-    const { data, error } = await dbQuery
+    // Use full-text search with ranking
+    // Note: Using textSearch is not available in Supabase JS client yet,
+    // so we use RPC function for proper FTS with ranking
+    const { data, error } = await client.rpc('search_profiles', {
+      search_query: sanitizedQuery,
+      result_limit: options?.limit ?? 20,
+      result_offset: options?.offset ?? 0,
+    })
 
     if (error) {
-      handleSupabaseError(error)
+      // Fallback to ILIKE if RPC fails (shouldn't happen in production)
+      const fallbackQuery = client
+        .from(this.tableName)
+        .select('*')
+        .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
+        .order('followers_count', { ascending: false })
+        .limit(options?.limit ?? 20)
+
+      if (options?.offset) {
+        fallbackQuery.range(
+          options.offset,
+          options.offset + (options.limit ?? 20) - 1
+        )
+      }
+
+      const { data: fallbackData, error: fallbackError } = await fallbackQuery
+
+      if (fallbackError) {
+        handleSupabaseError(fallbackError)
+      }
+
+      return (fallbackData ?? []) as ProfileRow[]
+    }
+
+    return (data ?? []) as ProfileRow[]
+  }
+
+  /**
+   * Get suggested users (most popular, not followed by current user)
+   */
+  async getSuggestedProfiles(
+    client: DbClient,
+    currentUserId: string,
+    options?: {
+      limit?: number
+    }
+  ): Promise<ProfileRow[]> {
+    // Get profiles with high follower count, excluding current user
+    // and profiles already followed by current user
+    const { data, error } = await client.rpc('get_suggested_profiles', {
+      current_user_id: currentUserId,
+      result_limit: options?.limit ?? 10,
+    })
+
+    if (error) {
+      // Fallback: simple query by follower count
+      const { data: fallbackData, error: fallbackError } = await client
+        .from(this.tableName)
+        .select('*')
+        .neq('id', currentUserId)
+        .order('followers_count', { ascending: false })
+        .limit(options?.limit ?? 10)
+
+      if (fallbackError) {
+        handleSupabaseError(fallbackError)
+      }
+
+      return (fallbackData ?? []) as ProfileRow[]
     }
 
     return (data ?? []) as ProfileRow[]
