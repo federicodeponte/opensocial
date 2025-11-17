@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation'
 import { PostComposer } from '@/components/posts/PostComposer'
 import { InfiniteFeed } from '@/components/posts/InfiniteFeed'
 import { SearchBar } from '@/components/search/SearchBar'
-import { WhoToFollow } from '@/components/search/WhoToFollow'
+import { TrendingHashtagsWidget } from '@/components/trending/TrendingHashtagsWidget'
+import { TrendingPostsWidget } from '@/components/trending/TrendingPosts'
+import { WhoToFollowWidget } from '@/components/recommendations/WhoToFollowWidget'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -48,8 +50,14 @@ export default async function HomePage() {
               <SearchBar />
             </div>
 
+            {/* Trending Posts */}
+            <TrendingPostsWidget limit={5} />
+
+            {/* Trending Hashtags */}
+            <TrendingHashtagsWidget limit={5} />
+
             {/* Who to Follow */}
-            <WhoToFollow limit={5} />
+            <WhoToFollowWidget limit={3} />
           </div>
         </div>
       </div>
