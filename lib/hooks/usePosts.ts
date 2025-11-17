@@ -42,3 +42,25 @@ export function useCreatePost() {
     },
   })
 }
+
+export function useToggleLike() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (postId: string) => {
+      const response = await fetch(`/api/posts/${postId}/like`, {
+        method: 'POST',
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error?.message || 'Failed to toggle like')
+      }
+      const { data } = await response.json()
+      return data
+    },
+    onSuccess: () => {
+      // Invalidate posts to refetch with updated like counts
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+    },
+  })
+}

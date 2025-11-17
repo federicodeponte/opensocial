@@ -8,6 +8,7 @@ export type Follow = Database['public']['Tables']['follows']['Row']
 
 export type PostWithProfile = Post & {
   profiles: Profile
+  hasLiked?: boolean
 }
 
 export type CreatePostInput = {

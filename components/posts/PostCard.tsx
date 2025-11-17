@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import type { PostWithProfile } from '@/lib/types/types'
 import { Card } from '@/components/ui/card'
+import { useToggleLike } from '@/lib/hooks/usePosts'
+import { useState } from 'react'
 
 interface PostCardProps {
   post: PostWithProfile
@@ -11,6 +13,24 @@ interface PostCardProps {
 
 export function PostCard({ post }: PostCardProps) {
   const timeAgo = formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
+  const toggleLike = useToggleLike()
+  const [isLiked, setIsLiked] = useState(post.hasLiked || false)
+  const [likeCount, setLikeCount] = useState(post.likes_count)
+
+  const handleLike = async () => {
+    // Optimistic update
+    setIsLiked(!isLiked)
+    setLikeCount(isLiked ? likeCount - 1 : likeCount + 1)
+
+    try {
+      await toggleLike.mutateAsync(post.id)
+    } catch (error) {
+      // Revert on error
+      setIsLiked(isLiked)
+      setLikeCount(likeCount)
+      console.error('Failed to toggle like:', error)
+    }
+  }
 
   return (
     <Card className="p-4 hover:bg-gray-50 transition-colors">
@@ -53,8 +73,12 @@ export function PostCard({ post }: PostCardProps) {
             <button className="hover:text-green-600 transition-colors">
               <span className="font-medium">{post.retweets_count}</span> retweets
             </button>
-            <button className="hover:text-red-600 transition-colors">
-              <span className="font-medium">{post.likes_count}</span> likes
+            <button
+              onClick={handleLike}
+              className={`hover:text-red-600 transition-colors ${isLiked ? 'text-red-600' : ''}`}
+              disabled={toggleLike.isPending}
+            >
+              <span className="font-medium">{likeCount}</span> {isLiked ? '❤️' : '🤍'}
             </button>
           </div>
         </div>
