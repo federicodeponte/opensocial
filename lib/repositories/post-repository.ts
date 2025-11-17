@@ -31,7 +31,6 @@ export class PostRepository {
       reply_to_id: data.replyToId || null,
     }
 
-    // @ts-ignore - Database types are placeholders until schema is deployed to Supabase
     const { data: result, error } = await client
       .from(this.tableName)
       .insert([postData])
