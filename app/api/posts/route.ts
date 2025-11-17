@@ -26,11 +26,11 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from('posts')
-      .insert({
+      .insert([{
         user_id: user.id,
         content,
-        reply_to_id: replyToId,
-      })
+        reply_to_id: replyToId || null,
+      }])
       .select(
         `
         *,
