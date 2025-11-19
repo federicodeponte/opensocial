@@ -3,12 +3,21 @@
 
 import Stripe from 'stripe'
 
-// Server-side Stripe client
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-11-17.clover',
-})
+// Server-side Stripe client - only initialize if API key is provided
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-11-17.clover',
+    })
+  : null
 
 export { stripe }
+
+/**
+ * Check if Stripe is configured
+ */
+export function isStripeConfigured(): boolean {
+  return stripe !== null
+}
 
 /**
  * Stripe publishable key for client-side

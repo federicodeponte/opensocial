@@ -1,0 +1,17 @@
+{
+  "buildCommand": "next build",
+  "devCommand": "next dev --turbopack",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key"
+  },
+  "build": {
+    "env": {
+      "OPENAI_API_KEY": "placeholder",
+      "STRIPE_SECRET_KEY": "placeholder",
+      "GEMINI_API_KEY": "placeholder"
+    }
+  }
+}
