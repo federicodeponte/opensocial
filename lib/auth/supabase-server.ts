@@ -32,3 +32,36 @@ export async function createClient() {
     }
   )
 }
+
+/**
+ * Get the current session (server-side)
+ */
+export async function getServerSession() {
+  const supabase = await createClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  return session
+}
+
+/**
+ * Get the current user (server-side)
+ */
+export async function getServerUser() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return user
+}
+
+/**
+ * Require authentication (throws if not authenticated)
+ */
+export async function requireAuth() {
+  const user = await getServerUser()
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+  return user
+}
