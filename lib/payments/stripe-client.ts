@@ -87,13 +87,6 @@ export const SUPPORTER_TIERS = [
 ] as const
 
 /**
- * Check if Stripe is configured
- */
-export function isStripeConfigured(): boolean {
-  return !!(process.env.STRIPE_SECRET_KEY && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-}
-
-/**
  * Format amount to currency
  */
 export function formatCurrency(amountInCents: number, currency = 'USD'): string {
