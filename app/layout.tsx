@@ -4,6 +4,7 @@ import "./globals.css";
 import { QueryProvider } from "@/lib/providers/query-provider";
 import { ThemeProvider } from "@/app/providers/ThemeProvider";
 import { Toaster } from "sonner";
+import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,6 +19,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "OpenSocial - Open Source Social Network",
   description: "A privacy-focused, open-source social network built with Next.js and Supabase",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "OpenSocial",
+  },
+  themeColor: "#3B82F6",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
 };
 
 export default function RootLayout({
@@ -36,6 +49,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <ServiceWorkerRegistration />
           <QueryProvider>
             {children}
           </QueryProvider>
