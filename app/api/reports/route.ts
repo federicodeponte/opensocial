@@ -1,10 +1,11 @@
 // ABOUTME: API endpoints for content reporting
-// ABOUTME: POST to create report, GET to list user's reports
+// ABOUTME: POST to create report, GET to list user's reports, auto-moderate with FREE tools
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/auth/supabase-server'
 import { handleApiError } from '@/lib/errors/error-handler'
 import { z } from 'zod'
+import { moderateContent, calculateSpamScore } from '@/lib/utils/content-moderation'
 
 const createReportSchema = z.object({
   reportedPostId: z.string().uuid().optional(),
@@ -36,16 +37,34 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedInput = createReportSchema.parse(body)
 
-    // Verify reported content exists
+    // Verify reported content exists and auto-moderate
+    let autoModerationResult = null
     if (validatedInput.reportedPostId) {
       const { data: post } = await supabase
         .from('posts')
-        .select('id')
+        .select('id, content')
         .eq('id', validatedInput.reportedPostId)
         .single()
 
       if (!post) {
         return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+      }
+
+      // Auto-moderate the reported post content
+      const modResult = moderateContent(post.content || '')
+      const spamScore = calculateSpamScore(post.content || '')
+
+      autoModerationResult = {
+        ...modResult,
+        spamScore,
+      }
+
+      // Auto-hide if moderation fails or spam score is high
+      if (!modResult.approved || spamScore > 70) {
+        await supabase
+          .from('posts')
+          .update({ content: '[Content hidden by auto-moderation]' })
+          .eq('id', validatedInput.reportedPostId)
       }
     }
 
@@ -87,7 +106,11 @@ export async function POST(request: NextRequest) {
       throw error
     }
 
-    return NextResponse.json({ success: true, data: report }, { status: 201 })
+    return NextResponse.json({
+      success: true,
+      data: report,
+      autoModeration: autoModerationResult,
+    }, { status: 201 })
   } catch (error) {
     return handleApiError(error)
   }
